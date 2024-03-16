@@ -183,39 +183,41 @@ def main(train_set: str, max_iters: int, in_hw: tuple, out_hw: tuple,
     high = np.array(high)
     # NOTE correct boxes
     for i in range(len(X)):
-        # X[i, 1], X[i, 2]
-        img_wh = X[i, 2][::-1]
+        # Assuming X[i][2] is an np.ndarray with the shape and reversing its elements
+        img_wh = np.array(X[i][2])[::-1]
 
         """ calculate the affine transform factor """
-        scale = in_wh / img_wh  # NOTE affine tranform sacle is [w,h]
+        scale = in_wh / img_wh  # NOTE affine transform scale is [w,h]
         scale[:] = np.min(scale)
         # NOTE translation is [w offset,h offset]
         translation = ((in_wh - img_wh * scale) / 2).astype(int)
 
         """ calculate the box transform matrix """
-        X[i, 1][:, 1:3] = (X[i, 1][:, 1:3] * img_wh * scale + translation) / in_wh
-        X[i, 1][:, 3:5] = (X[i, 1][:, 3:5] * img_wh * scale) / in_wh
+        # Assuming X[i][1] is an np.ndarray, applying transformations
+        X[i][1][:, 1:3] = (X[i][1][:, 1:3] * img_wh * scale + translation) / in_wh
+        X[i][1][:, 3:5] = (X[i][1][:, 3:5] * img_wh * scale) / in_wh
 
-    x = np.vstack(X[:, 1])
+    # Assuming each X[i][1] is an np.ndarray and stacking them
+    x = np.vstack([xi[1] for xi in X])
     x = x[:, 3:]
     layers = len(out_hw) // 2
-    if is_random == 'True':
+    if is_random:
         initial_centroids = np.hstack((np.random.uniform(low[0], high[0], (layers * anchor_num, 1)),
                                        np.random.uniform(low[1], high[1], (layers * anchor_num, 1))))
     else:
-        initial_centroids = np.vstack((np.linspace(0.05, 0.3, num=layers * anchor_num), np.linspace(0.05, 0.5, num=layers * anchor_num)))
-        initial_centroids = initial_centroids.T
-    centroids, idx = runkMeans(x, initial_centroids, 10, is_plot)
-    # NOTE : sort by descending , bigger value for layer 0 .
+        initial_centroids = np.vstack((np.linspace(0.05, 0.3, num=layers * anchor_num), np.linspace(0.05, 0.5, num=layers * anchor_num))).T
+    centroids, idx = runkMeans(x, initial_centroids, max_iters, is_plot)
+    # Sort by descending, bigger value for layer 0
     centroids = np.array(sorted(centroids, key=lambda x: (-x[0])))
     centroids = np.reshape(centroids, (layers, anchor_num, 2))
     for l in range(layers):
-        centroids[l] = centroids[l]  # grid_wh[l]  # NOTE centroids是相对于全局的0-1
+        centroids[l] = centroids[l]  # Assuming centroids relative to global 0-1
     if np.any(np.isnan(centroids)):
         print(ERROR, 'Result have NaN value please Rerun!')
     else:
         print(NOTE, f'Now anchors are :\n{centroids}')
         np.save(f'data/{train_set}_anchor.npy', centroids)
+
 
 
 def parse_arguments(argv):
